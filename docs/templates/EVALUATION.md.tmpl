@@ -1,0 +1,74 @@
+# SyncroMove: evaluation
+
+All numbers below come from `docs/evaluation_results.json`, written by
+`python scripts/evaluate.py` (run {{raw:generated_at}}, algorithm `{{raw:algorithm_version}}`, {{raw:runtime_seconds.total}} s
+on a laptop-class CPU). **Nothing is trained or tuned.** The script only replays history and counts.
+
+## Protocol
+
+| Step | What happens |
+|---|---|
+| Data | `{{raw:dataset.file}}`: {{int:dataset.rows_raw}} rows → {{int:dataset.rows_after_dedup}} after dropping exact duplicates → {{int:dataset.rows_after_collapse}} after collapsing back-to-back repeats at the same venue; {{int:dataset.users}} users |
+| Test window | The last {{pct:dataset.test_fraction}} of de-duplicated check-ins by time, from **{{raw:dataset.cutoff_utc}} UTC** |
+| No peeking | City popularity is counted only from check-ins before the window. Each prediction uses only that user's earlier check-ins |
+| Query | For every test check-in that has an earlier check-in: build the profile, score with the check-in's real time as the query time, record the rank of the place actually visited (miss if not a candidate) |
+| Scored | **{{int:dataset.test_checkins}}** check-ins from {{int:full_extras.users_evaluated}} users, every one counted |
+
+## Results
+
+![Accuracy chart](accuracy.png)
+
+| Method | Top-1 | Top-3 | Top-5 | MRR |
+|---|---|---|---|---|
+| City popularity only | {{pct:methods.popularity.top1}} | {{pct:methods.popularity.top3}} | {{pct:methods.popularity.top5}} | {{num3:methods.popularity.mrr}} |
+| Baseline: user's most visited | {{pct:methods.most_visited.top1}} | {{pct:methods.most_visited.top3}} | {{pct:methods.most_visited.top5}} | {{num3:methods.most_visited.mrr}} |
+| Markov only (order 1, back-off to frequency) | {{pct:methods.markov.top1}} | {{pct:methods.markov.top3}} | {{pct:methods.markov.top5}} | {{num3:methods.markov.mrr}} |
+| SyncroMove, `W_TIME = 0` | {{pct:methods.full_no_time.top1}} | {{pct:methods.full_no_time.top3}} | {{pct:methods.full_no_time.top5}} | {{num3:methods.full_no_time.mrr}} |
+| **SyncroMove (full rule)** | **{{pct:methods.full.top1}}** | **{{pct:methods.full.top3}}** | **{{pct:methods.full.top5}}** | **{{num3:methods.full.mrr}}** |
+
+Extra measures for the full rule:
+
+| Measure | Value |
+|---|---|
+| Right kind of place: the true category is among the 3 categories with the highest summed score | {{pct:full_extras.top3_category}} |
+| A top-3 place lies within 1 km of the real one | {{pct:full_extras.top3_within_1km}} |
+| Top-3, user had < 50 earlier check-ins (n = {{int:full_extras.top3_by_history.<50.n}}) | {{pct:full_extras.top3_by_history.<50.top3}} |
+| Top-3, 50–199 earlier check-ins (n = {{int:full_extras.top3_by_history.50-199.n}}) | {{pct:full_extras.top3_by_history.50-199.top3}} |
+| Top-3, 200+ earlier check-ins (n = {{int:full_extras.top3_by_history.200+.n}}) | {{pct:full_extras.top3_by_history.200+.top3}} |
+| Median of per-user top-3 accuracy | {{pct:full_extras.per_user_median_top3}} |
+| Test check-ins at a place the user had never visited before (unpredictable by design) | {{pct:full_extras.never_visited_before}} |
+
+## Reading the numbers
+
+- **The rule beats the most-visited baseline by {{pt:methods.full.top3-methods.most_visited.top3}} points top-3** and by
+  {{pt:methods.full.top1-methods.most_visited.top1}} points top-1.
+- **Knowing the time of day is worth {{pt:methods.full.top3-methods.full_no_time.top3}} points top-3.** Without it, the rule is no better than plain Markov.
+- **The hard ceiling is {{pct:full_extras.ceiling_top_any}}.** {{pct:full_extras.never_visited_before}} of test check-ins are at a place the
+  user had never been before. No method that only ranks the user's own places can get those, so
+  even a perfect ranker of known places would top out at {{pct:full_extras.ceiling_top_any}}.
+- **More history helps.** Users with 200+ earlier check-ins get {{pct:full_extras.top3_by_history.200+.top3}} top-3, against {{pct:full_extras.top3_by_history.<50.top3}} for users with fewer than 50.
+- **Don't quote 90%.** Predicting the exact venue among {{int:dataset.users}} users' tens of thousands of places is
+  hard. If a higher headline is wanted, the category ({{pct:full_extras.top3_category}}) and within-1 km
+  ({{pct:full_extras.top3_within_1km}}) figures are real, but they answer easier questions and must be labelled as such.
+
+## Comparison with the spec's reference run (§5.2)
+
+Every top-1/3/5 figure is within ±1 point of the reference; most match to 0.1 point. Known differences:
+
+| Item | Reference | Ours | Cause |
+|---|---|---|---|
+| Test window start | 2012-11-23 20:58 UTC | {{raw:dataset.cutoff_utc}} UTC | We cut at exactly 80% of de-duplicated check-ins (index ⌊0.8·N⌋). The reference's 20:58 isn't any clean 80% index of the raw, de-duplicated or collapsed rows, so its exact rule is unknown |
+| Test check-ins | 42,659 | {{int:dataset.test_checkins}} | Follows from the cutoff above (2 check-ins) |
+| Popularity-only MRR | 0.015 | {{num3:methods.popularity.mrr}} | Not confirmed. Our baseline ranks every venue in the city (the current one excluded). Top-1/3/5 agree within 0.1 point, so the difference is in the long tail of ranks, which MRR weights and top-k ignores |
+| Category accuracy | 47.4% | {{pct:full_extras.top3_category}} | Matches once "top 3 categories" means the 3 categories with the highest summed score. Taking the categories of the top-3 venues instead gives {{pct:full_extras.top3_venue_category}} |
+
+## Reproduce
+
+```bash
+python scripts/import_dataset.py --data data/raw/dataset_TSMC2014_NYC.txt
+python scripts/evaluate.py --data data/raw/dataset_TSMC2014_NYC.txt
+python scripts/render_docs.py
+```
+
+Changing a weight in `config.py` or `.env` is a design change: re-run the three commands and
+report the new table. Weights were not chosen by looking at these results.

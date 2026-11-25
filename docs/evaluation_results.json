@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-25T13:14:39Z",
+  "generated_at": "2026-11-25T13:25:19Z",
   "algorithm_version": "rule-v1",
   "dataset": {
     "file": "dataset_TSMC2014_NYC.txt",
@@ -68,6 +68,7 @@
   },
   "full_extras": {
     "top3_category": 0.4742,
+    "top3_venue_category": 0.4355,
     "top3_within_1km": 0.6144,
     "top3_by_history": {
       "<50": {
@@ -133,8 +134,9 @@
     }
   },
   "runtime_seconds": {
-    "load": 3.9,
-    "total": 12.6
+    "load": 3.0,
+    "total": 11.0
   },
+  "compared_with_reference": true,
   "differences_over_1pt": []
 }

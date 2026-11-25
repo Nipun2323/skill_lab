@@ -4,28 +4,15 @@ Next-place prediction for a logged-in user from their own check-ins, using a fix
 scoring algorithm (Markov transition + time of day + frequency + recency + a tiny popularity term).
 No training, no fitted weights, no ML libraries.
 
-Status legend: `[ ]` todo · `[x]` done · `[!]` blocked
+Status: all phases done. Legend: `[ ]` todo · `[x]` done · `[!]` blocked
 
 ---
 
-## Blocker before Phase A: the dataset
+## Dataset (resolved)
 
-This session runs in a cloud container, not on the Windows laptop. Kaggle and the original
-Google Sites page are **not reachable** from here (network policy), and there is no `kaggle` CLI.
-PyPI and Google Fonts are reachable, so everything else can be built.
-
-Ways to get `dataset_TSMC2014_NYC.txt` (or the Kaggle `.csv`) in:
-
-1. **Attach the file / zip to the chat** — it lands in the container, I point `--data` at it.
-   Nothing is committed; `data/raw/` is git-ignored.
-2. **Allow the download host** for this environment (the original source's Google Drive link)
-   so I can fetch it myself.
-3. Build Phases B–D against a synthetic file now; you run Phase A + evaluation on your laptop
-   and commit only `data/venues.csv.gz`, `data/samples/…`, `docs/evaluation_results.json`.
-   Weakest option: I couldn't verify §4.1/§5.2 myself.
-
-Until then, Phase A code and Phase B code can be written and unit-tested on synthetic data,
-but the **checkpoints (stats match, results within ±1 pt) cannot be signed off**.
+Kaggle and the original Google Sites page are blocked from the cloud container. The raw
+`dataset_TSMC2014_NYC.txt` was fetched from a public GitHub mirror into `data/raw/` (git-ignored).
+It has 227,428 lines, and every §4.1 statistic matches, so it is the same release.
 
 ---
 
@@ -62,73 +49,73 @@ Stdlib only for data (`csv`, `gzip`, `json`, `sqlite3`, `statistics`).
 
 ## Phase A — dataset import  (checkpoint: §4.1 stats printed and matching)
 
-- [ ] `scripts/common.py`: read bytes, decode UTF-8 → fall back to latin-1; sniff tab vs comma;
+- [x] `scripts/common.py`: read bytes, decode UTF-8 → fall back to latin-1; sniff tab vs comma;
       detect header row (first field not numeric); read 8 columns **by position**;
       parse `Tue Apr 03 18:00:09 +0000 2012` → epoch UTC int.
-- [ ] `clean()`: drop exact duplicate rows (expect 227,428 → 227,178); sort by (user, ts);
+- [x] `clean()`: drop exact duplicate rows (expect 227,428 → 227,178); sort by (user, ts);
       build per-user sequences `(venue_id, ts_utc, tz_offset_min)` with back-to-back
       same-venue repeats collapsed (`COLLAPSE_REPEATS`).
-- [ ] `venue_table()`: median lat/lon per venue, category = most frequent label, popularity =
+- [x] `venue_table()`: median lat/lon per venue, category = most frequent label, popularity =
       check-in count.
-- [ ] Sample histories: 25 users picked with `random.Random(42)`; user ids replaced by
+- [x] Sample histories: 25 users picked with `random.Random(42)`; user ids replaced by
       `sample_01..25` (anonymised); only users whose cleaned sequence is 100–500 rows so the copy
       stays small.
-- [ ] Print: rows raw / after dedup, users, venues, category names, category ids,
+- [x] Print: rows raw / after dedup, users, venues, category names, category ids,
       min/median/max check-ins per user, first/last timestamp, rows after collapse.
-- [ ] Compare against §4.1 in the output (✓/✗ per stat).
+- [x] Compare against §4.1 in the output (✓/✗ per stat).
 
 ## Phase B — algorithm + evaluation  (checkpoint: results table vs §5.2)
 
-- [ ] `algorithm.py` exactly as §4.3: profile in one pass; candidates = visited − current
+- [x] `algorithm.py` exactly as §4.3: profile in one pass; candidates = visited − current
       (cold start: top-100 popular); five signals each normalised over candidates (or all zero);
       weighted sum from config; probability = score / Σscore; rank by score → popularity → id;
       reason = largest weighted contribution, "a"/"an" by vowel.
-- [ ] Order-2 Markov with back-off when pair count < 2.
-- [ ] Time bucket: local time = ts + offset; `hour // 3` + 8 × (weekend); 16 buckets.
-- [ ] Unit test reproducing §4.4 (Gym 0.553, Coffee Shop 0.246, Subway 0.105, Home 0.097 —
+- [x] Order-2 Markov with back-off when pair count < 2.
+- [x] Time bucket: local time = ts + offset; `hour // 3` + 8 × (weekend); 16 buckets.
+- [x] Unit test reproducing §4.4 (Gym 0.553, Coffee Shop 0.246, Subway 0.105, Home 0.097 —
       I re-did the arithmetic: recency total 2.657, all four scores check out).
-- [ ] `evaluate.py`: global time cutoff at 80th percentile of cleaned check-ins; popularity from
+- [x] `evaluate.py`: global time cutoff at 80th percentile of cleaned check-ins; popularity from
       pre-cutoff rows only; per user, incremental replay (profile updated in O(1) per step rather
       than rebuilt, same result — verified against `build_profile` in a test); query time = real
       check-in time.
-- [ ] Methods: popularity only, most-visited, Markov-only (back-off to frequency),
+- [x] Methods: popularity only, most-visited, Markov-only (back-off to frequency),
       full with `W_TIME=0`, full.
-- [ ] Metrics: top-1/3/5, MRR, top-3 category, top-3 within 1 km, top-3 by prior-history band,
+- [x] Metrics: top-1/3/5, MRR, top-3 category, top-3 within 1 km, top-3 by prior-history band,
       per-user median top-3, runtime. Writes `docs/evaluation_results.json`.
-- [ ] Any gap > 1 pt vs §5.2 → find the cause and report it; do **not** adjust weights.
+- [x] Any gap > 1 pt vs §5.2 → find the cause and report it; do **not** adjust weights.
 
 ## Phase C — web app  (checkpoint: running at http://127.0.0.1:5000)
 
-- [ ] Schema §3.1 with FKs, cascades, indexes; venues synced from `venues.csv.gz` on first start
+- [x] Schema §3.1 with FKs, cascades, indexes; venues synced from `venues.csv.gz` on first start
       (checksum in `app_meta`, re-sync if file changes).
-- [ ] Auth: register (optional "Load a sample New York history"), login with rate limit
+- [x] Auth: register (optional "Load a sample New York history"), login with rate limit
       (5 failures per email or IP / 15 min → 429 with minutes), logout, session rotation,
       safe `next` redirect.
-- [ ] CSRF token in session; form field for pages, `X-CSRF-Token` header for API.
-- [ ] Security headers: CSP `default-src 'self'`, X-Frame-Options DENY, nosniff,
+- [x] CSRF token in session; form field for pages, `X-CSRF-Token` header for API.
+- [x] Security headers: CSP `default-src 'self'`, X-Frame-Options DENY, nosniff,
       Referrer-Policy no-referrer; `Cache-Control: no-store` on `/api/*`; 32 KB body limit.
-- [ ] API endpoints §2.2 with `{"error": {code, field, message}}` errors.
-- [ ] `predicted_rank`: on check-in, look up the latest logged prediction batch for this user
+- [x] API endpoints §2.2 with `{"error": {code, field, message}}` errors.
+- [x] `predicted_rank`: on check-in, look up the latest logged prediction batch for this user
       whose context is the current last check-in; rank 1–3 hit, 0 miss, null if none shown.
-- [ ] Prediction logging skips identical consecutive batches for the same context.
-- [ ] Account page: delete check-ins / delete account (password re-entry), JSON export.
-- [ ] UI: transit-map hero (inline SVG, equirectangular, cos(lat) scaling), next-stops list with
+- [x] Prediction logging skips identical consecutive batches for the same context.
+- [x] Account page: delete check-ins / delete account (password re-entry), JSON export.
+- [x] UI: transit-map hero (inline SVG, equirectangular, cos(lat) scaling), next-stops list with
       "Why?", check-in panel, recent visits with Predicted #n / Missed tags, accuracy card,
       time picker. Overpass woff2 self-hosted + OFL licence. No inline JS/CSS. 360 px, focus
       rings, reduced motion.
-- [ ] Client-side validation module with the exact messages from §2.2.
-- [ ] `/api/health` → `degraded` with message when venues file missing.
+- [x] Client-side validation module with the exact messages from §2.2.
+- [x] `/api/health` → `degraded` with message when venues file missing.
 
 ## Phase D — tests, docs, hygiene
 
-- [ ] pytest: test_algorithm, test_auth, test_api, test_evaluate_smoke (§5.3) — all green.
-- [ ] README (PowerShell + bash), `.env.example`, `.gitignore`
+- [x] pytest: test_algorithm, test_auth, test_api, test_evaluate_smoke (§5.3) — all green.
+- [x] README (PowerShell + bash), `.env.example`, `.gitignore`
       (`.env`, `instance/`, `data/raw/`, venvs, `__pycache__`, `kaggle.json`).
-- [ ] `docs/LLD.md` sections 1–7, numbers pulled from `evaluation_results.json` (rendered by a
+- [x] `docs/LLD.md` sections 1–7, numbers pulled from `evaluation_results.json` (rendered by a
       small script, not typed by hand); `docs/EVALUATION.md` + `docs/accuracy.png`.
-- [ ] End-to-end manual run: register with sample, top 3, Why?, check-in, predicted_rank recorded,
+- [x] End-to-end manual run: register with sample, top 3, Why?, check-in, predicted_rank recorded,
       export, delete. Report what was run.
-- [ ] Grep for ML libraries / training code; `git status` clean of secrets and raw data.
+- [x] Grep for ML libraries / training code; `git status` clean of secrets and raw data.
 
 ---
 

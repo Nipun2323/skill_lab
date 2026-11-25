@@ -92,7 +92,7 @@ def replay(seqs: dict, cutoff: int, cfg: AlgoConfig, popularity: dict, venues: d
     pop_pos = {v: i for i, v in enumerate(pop_order)}
 
     ranks = {m: [] for m in ("popularity", *weights)}
-    events = []  # (user, prior_count, hit3_category, hit3_within_1km)
+    events = []  # (user, prior_count, top-3 categories hit, top-3 within 1 km, top-3 venues' category hit)
     for user, seq in seqs.items():
         profile = Profile()
         prior = 0
@@ -115,9 +115,10 @@ def replay(seqs: dict, cutoff: int, cfg: AlgoConfig, popularity: dict, venues: d
                 top3 = ranked_venues(full_totals, 3, popularity)
                 actual = venues[venue_id]
                 cat_hit = actual[0] in top_categories(full_totals, venues, 3)
+                cat_hit_venues = any(venues[v][0] == actual[0] for v in top3)
                 near_hit = any(haversine_km(actual[1], actual[2], venues[v][1], venues[v][2]) <= 1.0
                                for v in top3)
-                events.append((user, prior, cat_hit, near_hit))
+                events.append((user, prior, cat_hit, near_hit, cat_hit_venues))
             add_checkin(profile, CheckIn(venue_id, ts, tz), cfg)
             prior += 1
     return {"ranks": ranks, "events": events}
@@ -155,6 +156,7 @@ def extras(full_ranks: list, events: list) -> dict:
     misses_unseen = sum(1 for r in full_ranks if r is None)
     return {
         "top3_category": round(sum(e[2] for e in events) / n, 4) if n else 0.0,
+        "top3_venue_category": round(sum(e[4] for e in events) / n, 4) if n else 0.0,
         "top3_within_1km": round(sum(e[3] for e in events) / n, 4) if n else 0.0,
         "top3_by_history": bands,
         "per_user_median_top3": round(statistics.median(user_rates), 4) if user_rates else 0.0,
@@ -247,7 +249,9 @@ def run(data_path: Path, settings: dict, cfg: AlgoConfig) -> dict:
         "reference": REFERENCE,
         "runtime_seconds": {"load": round(t_load, 1), "total": round(time.perf_counter() - t0, 1)},
     }
-    results["differences_over_1pt"] = compare(results)
+    is_reference_file = len(raw) == 227_428
+    results["compared_with_reference"] = is_reference_file
+    results["differences_over_1pt"] = compare(results) if is_reference_file else []
     return results
 
 
@@ -265,11 +269,14 @@ def print_table(results: dict) -> None:
     print(f"Right category in top 3 cats:   {e['top3_category']:.1%}  (ref 47.4%)")
     print(f"Top-3 place within 1 km:        {e['top3_within_1km']:.1%}  (ref 61.5%)")
     for label, b in e["top3_by_history"].items():
-        print(f"Top-3, prior history {label:<7}    {b['top3']:.1%}  (n={b['n']:,})")
+        shown = "n/a" if b["top3"] is None else f"{b['top3']:.1%}"
+        print(f"Top-3, prior history {label:<7}    {shown}  (n={b['n']:,})")
     print(f"Per-user median top-3:          {e['per_user_median_top3']:.1%}")
     print(f"Never visited before (ceiling): {e['never_visited_before']:.1%} of test check-ins")
     print(f"Runtime: {results['runtime_seconds']['total']} s")
-    if results["differences_over_1pt"]:
+    if not results["compared_with_reference"]:
+        print("\nNot the full NYC file: reference comparison skipped.")
+    elif results["differences_over_1pt"]:
         print("\nDifferences > 1 point from the reference run:")
         for line in results["differences_over_1pt"]:
             print("  " + line)
