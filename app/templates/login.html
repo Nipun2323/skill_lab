@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Log in · SyncroMove{% endblock %}
+{% block main_class %}page page-narrow{% endblock %}
+{% block content %}
+<section class="card auth-card">
+  <h1>Log in</h1>
+  <p class="muted">See where your line goes next.</p>
+  {% if errors.form %}<p class="form-error" role="alert">{{ errors.form }}</p>{% endif %}
+  <form method="post" action="{{ url_for('auth.login') }}" novalidate data-validate="login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required maxlength="254"
+             value="{{ form.email or '' }}" aria-describedby="email-error"
+             {% if errors.email %}aria-invalid="true"{% endif %}>
+      <p class="field-error" id="email-error">{{ errors.email or '' }}</p>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required
+             aria-describedby="password-error" {% if errors.password %}aria-invalid="true"{% endif %}>
+      <p class="field-error" id="password-error">{{ errors.password or '' }}</p>
+    </div>
+    <button type="submit" class="button primary">Log in</button>
+  </form>
+  <p class="muted small">New here? <a href="{{ url_for('auth.register') }}">Create an account</a></p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/validate.js') }}"></script>{% endblock %}

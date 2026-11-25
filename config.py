@@ -19,6 +19,7 @@ DEFAULTS: dict[str, object] = {
     "VENUES_PATH": "data/venues.csv.gz",
     "SAMPLES_PATH": "data/samples/sample_histories.json.gz",
     "DATABASE_PATH": "instance/syncromove.db",
+    "EVAL_RESULTS_PATH": "docs/evaluation_results.json",
     "SECRET_KEY": "",
     # Algorithm (fixed, explainable; no training)
     "MARKOV_ORDER": 1,
@@ -48,7 +49,7 @@ DEFAULTS: dict[str, object] = {
     "PORT": 5000,
 }
 
-PATH_KEYS = ("RAW_DATA_PATH", "VENUES_PATH", "SAMPLES_PATH", "DATABASE_PATH")
+PATH_KEYS = ("RAW_DATA_PATH", "VENUES_PATH", "SAMPLES_PATH", "DATABASE_PATH", "EVAL_RESULTS_PATH")
 
 ALGORITHM_VERSION = "rule-v1"
 

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}SyncroMove{% endblock %}</title>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/overpass-latin-var.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('views.index') }}">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 24 L13 12 L20 18 L28 6" /><circle cx="4" cy="24" r="3"/><circle cx="13" cy="12" r="3"/><circle cx="20" cy="18" r="3"/><circle cx="28" cy="6" r="3.5" class="brand-end"/></svg>
+      <span>SyncroMove</span>
+    </a>
+    {% if current_user %}
+    <nav class="nav" aria-label="Main">
+      <a href="{{ url_for('views.dashboard') }}" {% if request.endpoint == 'views.dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
+      <a href="{{ url_for('views.account') }}" {% if request.endpoint == 'views.account' %}aria-current="page"{% endif %}>Account</a>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="link-button">Log out</button>
+      </form>
+    </nav>
+    {% endif %}
+  </header>
+  <main id="main" class="{% block main_class %}page{% endblock %}">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="flash" role="status">{% for m in messages %}<p>{{ m }}</p>{% endfor %}</div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <p>Predictions use a fixed rule (no training). Data: Foursquare NYC check-ins, 2012–2013 (Yang et al., 2015).</p>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

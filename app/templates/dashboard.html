@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · SyncroMove{% endblock %}
+{% block content %}
+<section class="hero card" aria-labelledby="line-title">
+  <div class="hero-head">
+    <div>
+      <p class="eyebrow" id="time-bucket">Next stops</p>
+      <h1 id="line-title">Your line</h1>
+    </div>
+    <form class="when" id="when-form" novalidate>
+      <label for="when-input">Predict for</label>
+      <div class="when-row">
+        <input id="when-input" type="datetime-local" step="60" aria-describedby="when-error">
+        <button type="submit" class="button">Update</button>
+        <button type="button" class="button ghost" id="when-now">Now</button>
+      </div>
+      <p class="field-error" id="when-error"></p>
+    </form>
+  </div>
+  <div class="map-wrap">
+    <svg id="map" class="map" viewBox="0 0 800 420" role="img" aria-labelledby="map-title map-desc">
+      <title id="map-title">Your recent check-ins and predicted next stops</title>
+      <desc id="map-desc">Loading…</desc>
+    </svg>
+    <p class="map-empty" id="map-empty" hidden>Your line starts with your first check-in. Search for a place below.</p>
+  </div>
+  <p class="map-note muted small" id="map-note"></p>
+</section>
+
+<section class="card" aria-labelledby="stops-title">
+  <h2 id="stops-title">Next stops</h2>
+  <ol class="stops" id="stops" aria-live="polite"></ol>
+  <p class="muted small" id="stops-empty" hidden></p>
+</section>
+
+<div class="panels">
+  <section class="card" aria-labelledby="checkin-title">
+    <h2 id="checkin-title">Check in</h2>
+    <form id="checkin-form" novalidate>
+      <div class="field">
+        <label for="place-search">Kind of place</label>
+        <input id="place-search" type="search" maxlength="60" autocomplete="off"
+               placeholder="coffee, gym, subway…" aria-describedby="place-hint place-error">
+        <p class="hint" id="place-hint">Places are New York venues from the dataset, listed nearest to your last check-in.</p>
+        <p class="field-error" id="place-error"></p>
+      </div>
+      <fieldset class="results" id="place-results-wrap" hidden>
+        <legend class="sr-only">Pick a place</legend>
+        <ul class="place-results" id="place-results"></ul>
+      </fieldset>
+      <div class="field">
+        <label for="checkin-time">Time</label>
+        <input id="checkin-time" type="datetime-local" step="60" required aria-describedby="checkin-time-error">
+        <p class="field-error" id="checkin-time-error"></p>
+      </div>
+      <p class="form-error" id="checkin-error" role="alert" hidden></p>
+      <p class="form-ok" id="checkin-ok" role="status" hidden></p>
+      <button type="submit" class="button primary">Check in</button>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="recent-title">
+    <h2 id="recent-title">Recent visits</h2>
+    <ul class="visits" id="visits"></ul>
+    <p class="muted small" id="visits-empty" hidden>No visits yet. Your check-ins will appear here.</p>
+  </section>
+
+  <section class="card" aria-labelledby="acc-title">
+    <h2 id="acc-title">How accurate is this?</h2>
+    <div id="accuracy"><p class="muted small">Loading…</p></div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/validate.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Account · SyncroMove{% endblock %}
+{% block main_class %}page page-narrow{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Your account</h1>
+  <dl class="facts">
+    <div><dt>Email</dt><dd>{{ current_user.email }}</dd></div>
+    <div><dt>Member since</dt><dd>{{ current_user.created_at[:10] }}</dd></div>
+    <div><dt>Check-ins</dt><dd class="num">{{ stats.total }} ({{ stats.own }} added by you)</dd></div>
+    <div><dt>Sample history</dt><dd>{{ 'Dataset user ' ~ current_user.sample_source if current_user.sample_source else 'None' }}</dd></div>
+  </dl>
+  {% if errors.form %}<p class="form-error" role="alert">{{ errors.form }}</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Download your data</h2>
+  <p class="muted">A JSON file with your account details, every check-in and every prediction we showed you.</p>
+  <a class="button" href="{{ url_for('views.export') }}">Download JSON</a>
+</section>
+
+<section class="card">
+  <h2>Delete your check-ins</h2>
+  <p class="muted">Removes all check-ins and prediction logs. Your account stays.</p>
+  <form method="post" action="{{ url_for('views.account') }}" novalidate data-validate="confirm-password">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete_checkins">
+    <div class="field">
+      <label for="pw-checkins">Password</label>
+      <input id="pw-checkins" name="password" type="password" autocomplete="current-password" required
+             aria-describedby="pw-checkins-error" {% if errors.delete_checkins %}aria-invalid="true"{% endif %}>
+      <p class="field-error" id="pw-checkins-error">{{ errors.delete_checkins or '' }}</p>
+    </div>
+    <button type="submit" class="button danger">Delete check-ins</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Delete your account</h2>
+  <p class="muted">Removes your account and everything linked to it. This can't be undone.</p>
+  <form method="post" action="{{ url_for('views.account') }}" novalidate data-validate="confirm-password">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete_account">
+    <div class="field">
+      <label for="pw-account">Password</label>
+      <input id="pw-account" name="password" type="password" autocomplete="current-password" required
+             aria-describedby="pw-account-error" {% if errors.delete_account %}aria-invalid="true"{% endif %}>
+      <p class="field-error" id="pw-account-error">{{ errors.delete_account or '' }}</p>
+    </div>
+    <button type="submit" class="button danger">Delete account</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/validate.js') }}"></script>{% endblock %}

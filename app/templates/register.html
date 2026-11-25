@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Create an account · SyncroMove{% endblock %}
+{% block main_class %}page page-narrow{% endblock %}
+{% block content %}
+<section class="card auth-card">
+  <h1>Create an account</h1>
+  <p class="muted">SyncroMove predicts the next three places you're likely to visit from your own check-ins.</p>
+  {% if errors.form %}<p class="form-error" role="alert">{{ errors.form }}</p>{% endif %}
+  <form method="post" action="{{ url_for('auth.register') }}" novalidate data-validate="register">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required maxlength="254"
+             value="{{ form.email or '' }}" aria-describedby="email-error"
+             {% if errors.email %}aria-invalid="true"{% endif %}>
+      <p class="field-error" id="email-error">{{ errors.email or '' }}</p>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8"
+             aria-describedby="password-hint password-error" {% if errors.password %}aria-invalid="true"{% endif %}>
+      <p class="hint" id="password-hint">At least 8 characters, with a letter and a number.</p>
+      <p class="field-error" id="password-error">{{ errors.password or '' }}</p>
+    </div>
+    <div class="field">
+      <label for="confirm">Confirm password</label>
+      <input id="confirm" name="confirm" type="password" autocomplete="new-password" required
+             aria-describedby="confirm-error" {% if errors.confirm %}aria-invalid="true"{% endif %}>
+      <p class="field-error" id="confirm-error">{{ errors.confirm or '' }}</p>
+    </div>
+    {% if samples_available %}
+    <div class="field checkbox-field">
+      <input id="sample" name="sample" type="checkbox" value="1" {% if form.sample == '1' %}checked{% endif %}>
+      <label for="sample">Load a sample New York history
+        <span class="hint block">The data covers New York City in 2012–13, and its places have no names, only a category and a location. A sample copies one anonymised person's check-ins into your account so predictions work straight away. You can delete them any time.</span>
+      </label>
+    </div>
+    {% endif %}
+    <button type="submit" class="button primary">Create account</button>
+  </form>
+  <p class="muted small">Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/validate.js') }}"></script>{% endblock %}
