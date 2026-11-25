@@ -202,13 +202,28 @@ def compute_signals(profile: Profile, query_ts: int, query_tz: int, popularity: 
     return candidates, signals, cold_start
 
 
+def weighted_totals(candidates: list[str], signals: dict[str, dict],
+                    weights: dict[str, float]) -> dict[str, float]:
+    """score(v) = sum over signals of weight * signal(v). Used by combine() and the evaluator."""
+    totals = dict.fromkeys(candidates, 0.0)
+    for name in SIGNALS:  # same order everywhere -> identical floats
+        w = weights.get(name, 0.0)
+        if not w:
+            continue
+        for v, x in signals[name].items():
+            if v in totals:
+                totals[v] += w * x
+    return totals
+
+
 def combine(candidates: list[str], signals: dict[str, dict], weights: dict[str, float]) -> dict:
     """Weighted sum of the signals for every candidate -> {venue: Score}."""
+    totals = weighted_totals(candidates, signals, weights)
     scores = {}
     for v in candidates:
         parts = {name: signals[name].get(v, 0.0) for name in SIGNALS}
         contrib = {name: weights.get(name, 0.0) * parts[name] for name in SIGNALS}
-        scores[v] = Score(total=sum(contrib.values()), parts=parts, contrib=contrib)
+        scores[v] = Score(total=totals[v], parts=parts, contrib=contrib)
     return scores
 
 
@@ -218,8 +233,30 @@ def score_candidates(profile: Profile, query_time: int, query_tz: int, popularit
     return combine(candidates, signals, cfg.weights)
 
 
-def _rank_key(v: str, total: float, popularity: dict):
+def rank_key(v: str, total: float, popularity: dict):
+    """Sort key: higher score, then higher city popularity, then venue id."""
     return (-total, -popularity.get(v, 0), v)
+
+
+def ranked_venues(totals: dict[str, float], k: int, popularity: dict) -> list[str]:
+    return heapq.nsmallest(k, totals, key=lambda v: rank_key(v, totals[v], popularity))
+
+
+def rank_in_totals(totals: dict[str, float], venue_id: str, popularity: dict) -> int | None:
+    """1-based rank of venue_id, None if it is not a candidate. O(c), no full sort."""
+    t = totals.get(venue_id)
+    if t is None:
+        return None
+    p = popularity.get(venue_id, 0)
+    better = 0
+    for v, x in totals.items():
+        if x > t:
+            better += 1
+        elif x == t and v != venue_id:
+            q = popularity.get(v, 0)
+            if q > p or (q == p and v < venue_id):
+                better += 1
+    return better + 1
 
 
 def reason_code(score: Score) -> str:
@@ -231,15 +268,15 @@ def reason_code(score: Score) -> str:
 
 
 def top_k(scores: dict, k: int, popularity: dict) -> list[Prediction]:
-    total = sum(s.total for s in scores.values())
-    ranked = heapq.nsmallest(k, scores, key=lambda v: _rank_key(v, scores[v].total, popularity))
+    totals = {v: s.total for v, s in scores.items()}
+    grand = sum(totals.values())
     out = []
-    for v in ranked:
+    for v in ranked_venues(totals, k, popularity):
         s = scores[v]
         out.append(Prediction(
             venue_id=v,
             score=s.total,
-            probability=(s.total / total) if total > 0 else 0.0,
+            probability=(s.total / grand) if grand > 0 else 0.0,
             reason=reason_code(s),
             signals=dict(s.parts),
         ))
@@ -248,9 +285,4 @@ def top_k(scores: dict, k: int, popularity: dict) -> list[Prediction]:
 
 def rank_of(scores: dict, venue_id: str, popularity: dict) -> int | None:
     """1-based rank of venue_id among the scored candidates, None if it is not a candidate."""
-    target = scores.get(venue_id)
-    if target is None:
-        return None
-    key = _rank_key(venue_id, target.total, popularity)
-    better = sum(1 for v, s in scores.items() if _rank_key(v, s.total, popularity) < key)
-    return better + 1
+    return rank_in_totals({v: s.total for v, s in scores.items()}, venue_id, popularity)

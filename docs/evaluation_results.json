@@ -1,0 +1,140 @@
+{
+  "generated_at": "2026-11-25T13:14:39Z",
+  "algorithm_version": "rule-v1",
+  "dataset": {
+    "file": "dataset_TSMC2014_NYC.txt",
+    "rows_raw": 227428,
+    "rows_after_dedup": 227178,
+    "rows_after_collapse": 215078,
+    "users": 1083,
+    "test_fraction": 0.2,
+    "cutoff_utc": "2012-11-23 21:01:22",
+    "test_checkins": 42657
+  },
+  "config": {
+    "MARKOV_ORDER": 1,
+    "HISTORY_LENGTH": 1000,
+    "W_TRANSITION": 0.4,
+    "W_TIME": 0.3,
+    "W_FREQUENCY": 0.2,
+    "W_RECENCY": 0.1,
+    "W_POPULARITY": 0.001,
+    "RECENT_WINDOW": 20,
+    "RECENT_DECAY": 0.8,
+    "TIME_BUCKET_HOURS": 3,
+    "COLLAPSE_REPEATS": true
+  },
+  "methods": {
+    "popularity": {
+      "label": "City popularity only",
+      "n": 42657,
+      "top1": 0.0045,
+      "top3": 0.0115,
+      "top5": 0.0166,
+      "mrr": 0.0114
+    },
+    "most_visited": {
+      "label": "Baseline: user's most visited",
+      "n": 42657,
+      "top1": 0.1315,
+      "top3": 0.2489,
+      "top5": 0.3156,
+      "mrr": 0.2194
+    },
+    "markov": {
+      "label": "Markov only (order 1, back-off to frequency)",
+      "n": 42657,
+      "top1": 0.1451,
+      "top3": 0.2746,
+      "top5": 0.3406,
+      "mrr": 0.236
+    },
+    "full_no_time": {
+      "label": "SyncroMove algorithm, W_TIME = 0",
+      "n": 42657,
+      "top1": 0.1482,
+      "top3": 0.2736,
+      "top5": 0.3382,
+      "mrr": 0.2381
+    },
+    "full": {
+      "label": "SyncroMove algorithm",
+      "n": 42657,
+      "top1": 0.1758,
+      "top3": 0.31,
+      "top5": 0.3726,
+      "mrr": 0.2667
+    }
+  },
+  "full_extras": {
+    "top3_category": 0.4742,
+    "top3_within_1km": 0.6144,
+    "top3_by_history": {
+      "<50": {
+        "n": 1016,
+        "top3": 0.2146
+      },
+      "50-199": {
+        "n": 23063,
+        "top3": 0.2701
+      },
+      "200+": {
+        "n": 18578,
+        "top3": 0.3647
+      }
+    },
+    "per_user_median_top3": 0.239,
+    "users_evaluated": 900,
+    "never_visited_before": 0.3754,
+    "ceiling_top_any": 0.6246
+  },
+  "reference": {
+    "test_checkins": 42659,
+    "methods": {
+      "popularity": {
+        "top1": 0.005,
+        "top3": 0.012,
+        "top5": 0.016,
+        "mrr": 0.015
+      },
+      "most_visited": {
+        "top1": 0.132,
+        "top3": 0.249,
+        "top5": 0.316,
+        "mrr": 0.22
+      },
+      "markov": {
+        "top1": 0.145,
+        "top3": 0.275,
+        "top5": 0.341,
+        "mrr": 0.236
+      },
+      "full_no_time": {
+        "top1": 0.148,
+        "top3": 0.274,
+        "top5": 0.338,
+        "mrr": 0.238
+      },
+      "full": {
+        "top1": 0.176,
+        "top3": 0.31,
+        "top5": 0.373,
+        "mrr": 0.267
+      }
+    },
+    "full_extras": {
+      "top3_category": 0.474,
+      "top3_within_1km": 0.615,
+      "top3_by_history": {
+        "<50": 0.214,
+        "50-199": 0.27,
+        "200+": 0.365
+      }
+    }
+  },
+  "runtime_seconds": {
+    "load": 3.9,
+    "total": 12.6
+  },
+  "differences_over_1pt": []
+}
