@@ -106,10 +106,21 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------- backend
 
-@st.cache_resource
-def backend():
-    """One Flask app per server process: schema, venues and the Mumbai demo people on first start."""
+def code_version() -> str:
+    """Changes whenever a backend file changes, e.g. after Streamlit Cloud pulls a new commit."""
+    files = sorted(ROOT.glob("app/**/*.py")) + sorted(ROOT.glob("predictor/*.py")) + [ROOT / "config.py"]
+    return ",".join(f"{f.name}:{f.stat().st_mtime_ns}" for f in files if f.is_file())
+
+
+@st.cache_resource(max_entries=1)
+def _backend(version: str):
     return create_app()
+
+
+def backend():
+    """One Flask app per server process (schema, venues, Mumbai demo people), rebuilt when the
+    code changes, so a redeploy that doesn't restart the process still picks up new code."""
+    return _backend(code_version())
 
 
 def ctx():
