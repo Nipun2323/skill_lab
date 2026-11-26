@@ -31,6 +31,12 @@ def email_exists(email: str) -> bool:
     return get_db().execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone() is not None
 
 
+def set_sample_source(user_id: int, sample_source: str) -> None:
+    db = get_db()
+    db.execute("UPDATE users SET sample_source = ? WHERE user_id = ?", (sample_source, user_id))
+    db.commit()
+
+
 def get_user(user_id: int):
     """Public user fields (no password hash)."""
     return get_db().execute(

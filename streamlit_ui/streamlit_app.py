@@ -147,6 +147,18 @@ def register(email: str, pw: str, confirm: str, sample: bool) -> None:
     st.rerun()
 
 
+def load_sample_into(uid: int) -> int:
+    """Copy a sample year into an account that has no check-ins. Returns rows added (0 if not empty)."""
+    if repo.checkin_stats(uid)["total"]:
+        return 0  # don't mix a sample timeline with the user's own check-ins
+    key, rows = pick_sample()
+    if not key:
+        return 0
+    repo.copy_sample(uid, rows)
+    repo.set_sample_source(uid, key)
+    return len(rows)
+
+
 # ----------------------------------------------------------------------------- transit map
 
 def map_svg(route: list, preds: list) -> str:
@@ -279,7 +291,16 @@ def show_dashboard(uid: int) -> None:
                    if data["cold_start"] else
                    f"Based on your last {data['history_used']} check-ins. Sample histories are made up, at real New York places.")
     else:
-        st.info("Your line starts with your first check-in. Search for a place below.")
+        st.info("Your account has no check-ins yet, so these are just New York's most popular places. "
+                "Load a sample year of check-ins to see real predictions, or search for a place below.")
+        with ctx():
+            can_load = bool(sample_histories())
+        if can_load and st.button("Load a sample year of check-ins", type="primary"):
+            with ctx():
+                n = load_sample_into(uid)
+            st.session_state.flash = f"Loaded {n} made-up check-ins from the past year." if n else \
+                "Your account already has check-ins, so no sample was added."
+            st.rerun()
 
     # ---- next stops
     st.subheader("Next stops")
@@ -295,6 +316,11 @@ def show_dashboard(uid: int) -> None:
             st.markdown(f"**{p['category']}** &nbsp; <span style='color:#5B6875'>{fmt_km(p['distance_km'])}</span>",
                         unsafe_allow_html=True)
             st.write(p["reason"])
+            if data["cold_start"]:
+                with ctx():
+                    popular = prediction_service.venue_dict(p["venue_id"])["popularity"]
+                st.caption(f"{popular:,} check-ins in the "
+                           f"New York data · {p['lat']:.4f}, {p['lon']:.4f}")
             st.progress(min(1.0, p["probability"] / max_p), text=f"{p['probability'] * 100:.0f}% likely")
             with st.expander("Why?"):
                 rows = [{"Signal": name, "Value": f"{p['signals'][key]:.3f}",
