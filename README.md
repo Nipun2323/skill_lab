@@ -58,6 +58,30 @@ If PowerShell refuses to run `Activate.ps1`, run
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or call `.venv\Scripts\python.exe run.py`
 directly.
 
+## Streamlit version (for Streamlit Community Cloud)
+
+`streamlit_ui/streamlit_app.py` is a second front end for the same backend. It reuses the
+algorithm, database, validation and check-in rules, so predictions are identical to the Flask app.
+
+Run it locally:
+
+```bash
+pip install -r streamlit_ui/requirements.txt
+streamlit run streamlit_ui/streamlit_app.py
+```
+
+Deploy it at https://share.streamlit.io: **Create app** → pick this repository and branch → main
+file path `streamlit_ui/streamlit_app.py` → under **Advanced settings** choose Python 3.11 or newer
+→ **Deploy**.
+
+Limits of the hosted version:
+- **Accounts don't last.** Streamlit Cloud's disk is temporary, so the SQLite database is wiped
+  whenever the app restarts, sleeps or is redeployed. Fine for a demo; not for real users.
+- **Refreshing the page logs you out**, because the login lives in Streamlit's per-tab session.
+- **It's public.** Anyone with the link can register. Don't use real passwords.
+- The Flask app's CSRF tokens, CSP and other security headers don't apply. Streamlit doesn't use
+  form POSTs and doesn't let an app set its own headers. The LLD describes the Flask version.
+
 ## Re-run the import and the evaluation (optional)
 
 1. Download the **Foursquare NYC and Tokyo check-in dataset** from the original source,

@@ -12,6 +12,7 @@ from predictor.algorithm import haversine_km
 
 from . import validators as v
 from .security import current_user, login_required
+from .services import checkin_service
 from .services import prediction_service as ps
 from .services import repository as repo
 
@@ -66,22 +67,9 @@ def list_checkins():
 @login_required
 def create_checkin():
     body = v.json_object(request.get_json(silent=True))
-    uid = _uid()
-    venue_id = v.venue_id(body.get("venue_id"))
-    tz = v.tz_offset(body.get("tz_offset_min"))
-    venue = ps.venue_dict(venue_id)
-    if venue is None:
-        raise v.ValidationError("venue_id", "We couldn't find that place. Search again and pick one from the list.",
-                                status=404, code="not_found")
-    last = repo.last_checkin(uid)
-    if last is not None and last["venue_id"] == venue_id:
-        raise v.ValidationError("venue_id", "You're already checked in here.", status=409, code="duplicate")
-    ts = v.timestamp(body.get("timestamp"), now=int(time.time()),
-                     last_ts=last["ts_utc"] if last else None)
-    rank = repo.rank_in_last_prediction(uid, last["checkin_id"] if last else None, venue_id)
-    checkin_id = repo.add_checkin(uid, venue_id, ts, tz, "app", rank)
-    return jsonify({"checkin_id": checkin_id, "venue_id": venue_id, "category": venue["category"],
-                    "ts_utc": ts, "predicted_rank": rank}), 201
+    result = checkin_service.record_checkin(_uid(), body.get("venue_id"), body.get("timestamp"),
+                                            body.get("tz_offset_min"))
+    return jsonify(result), 201
 
 
 @bp.get("/venues")
