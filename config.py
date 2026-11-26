@@ -41,6 +41,7 @@ DEFAULTS: dict[str, object] = {
     "SAMPLE_USERS": 25,
     "RANDOM_SEED": 42,
     # App
+    "DEMO_DATA": True,  # seed the three Mumbai demo people (app/services/demo.py) on start
     "TOP_K": 3,
     "MAX_K": 10,
     "PASSWORD_MIN": 8,

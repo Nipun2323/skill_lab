@@ -49,10 +49,20 @@ def algo_config() -> AlgoConfig:
     return AlgoConfig.from_settings(current_app.config)
 
 
-def predict_for_user(user_id: int, query_ts: int, query_tz: int, k: int, log: bool = True) -> dict:
+def predict_for_user(user_id: int, query_ts: int, query_tz: int, k: int, log: bool = True,
+                     at_venue: str | None = None) -> dict:
+    """Top k next places. `at_venue` asks "what if I checked in here at query time?": the profile
+    gets that one extra visit, and the result is not logged (it is not a real prediction shown
+    for the user's real current place)."""
     cfg = algo_config()
     rows = repo.history(user_id, cfg.history_length)
-    profile = build_profile([CheckIn(r["venue_id"], r["ts_utc"], r["tz_offset_min"]) for r in rows], cfg)
+    checkins = [CheckIn(r["venue_id"], r["ts_utc"], r["tz_offset_min"]) for r in rows]
+    what_if = bool(at_venue) and venue_dict(at_venue, user_id) is not None \
+        and (not checkins or checkins[-1].venue_id != at_venue)
+    if what_if:
+        checkins.append(CheckIn(at_venue, max(query_ts, checkins[-1].ts_utc if checkins else 0), query_tz))
+        log = False
+    profile = build_profile(checkins, cfg)
     pop = popularity()
     cold_start = not candidates_for(profile)
     scores = score_candidates(profile, query_ts, query_tz, pop, cfg)

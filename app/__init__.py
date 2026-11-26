@@ -55,6 +55,9 @@ def create_app(test_config: dict | None = None) -> Flask:
     try:
         dbmod.init_db(conn)
         app.config["VENUES_STATUS"] = dbmod.load_venues(conn, app.config["VENUES_PATH"])
+        if app.config.get("DEMO_DATA"):
+            from .services import demo
+            app.config["DEMO_USERS"] = demo.ensure_demo(conn)
     finally:
         conn.close()
 

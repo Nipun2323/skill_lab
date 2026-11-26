@@ -48,6 +48,7 @@ def app(tmp_path):
         "VENUES_PATH": venues,
         "SAMPLES_PATH": samples,
         "SECRET_KEY": "test-secret",
+        "DEMO_DATA": False,
     })
     yield app
 
