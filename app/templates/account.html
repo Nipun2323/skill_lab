@@ -8,7 +8,7 @@
     <div><dt>Email</dt><dd>{{ current_user.email }}</dd></div>
     <div><dt>Member since</dt><dd>{{ current_user.created_at[:10] }}</dd></div>
     <div><dt>Check-ins</dt><dd class="num">{{ stats.total }} ({{ stats.own }} added by you)</dd></div>
-    <div><dt>Sample history</dt><dd>{{ 'Dataset user ' ~ current_user.sample_source if current_user.sample_source else 'None' }}</dd></div>
+    <div><dt>Sample history</dt><dd>{{ current_user.sample_source or 'None' }}</dd></div>
   </dl>
   {% if errors.form %}<p class="form-error" role="alert">{{ errors.form }}</p>{% endif %}
 </section>

@@ -43,7 +43,11 @@ EXPECTED = {
     "last_utc": "2013-02-16 02:35",
 }
 
+# Demo histories: 100–500 check-ins, at least 10 different places, spread over at least 9 months
+# (the whole file covers 10.5 months), so a sample shifted to "the past year" fills most of it.
 SAMPLE_MIN, SAMPLE_MAX = 100, 500
+SAMPLE_MIN_PLACES = 10
+SAMPLE_MIN_SPAN_DAYS = 270
 
 
 @dataclass(frozen=True)
@@ -84,8 +88,12 @@ def write_venues(venues: list[Venue], path: Path) -> None:
 
 
 def pick_samples(seqs: dict, n: int, seed: int) -> dict:
-    eligible = sorted((u for u, s in seqs.items() if SAMPLE_MIN <= len(s) <= SAMPLE_MAX),
-                      key=lambda u: (len(u), u))
+    def suitable(s) -> bool:
+        return (SAMPLE_MIN <= len(s) <= SAMPLE_MAX
+                and len({venue for venue, _, _ in s}) >= SAMPLE_MIN_PLACES
+                and s[-1][1] - s[0][1] >= SAMPLE_MIN_SPAN_DAYS * 86400)
+
+    eligible = sorted((u for u, s in seqs.items() if suitable(s)), key=lambda u: (len(u), u))
     chosen = sorted(random.Random(seed).sample(eligible, min(n, len(eligible))),
                     key=lambda u: (len(u), u))
     return {u: [list(x) for x in seqs[u]] for u in chosen}

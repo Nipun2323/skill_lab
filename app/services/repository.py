@@ -62,8 +62,10 @@ def venue_count() -> int:
 
 
 def all_venues() -> dict:
-    rows = get_db().execute("SELECT venue_id, category, latitude, longitude, popularity FROM venues")
-    return {r[0]: (r[1], r[2], r[3], r[4]) for r in rows}
+    """{venue_id: (category, lat, lon, popularity, name, owner_user_id)}"""
+    rows = get_db().execute(
+        "SELECT venue_id, category, latitude, longitude, popularity, name, owner_user_id FROM venues")
+    return {r[0]: (r[1], r[2], r[3], r[4], r[5], r[6]) for r in rows}
 
 
 def get_venue(venue_id: str):
@@ -72,12 +74,27 @@ def get_venue(venue_id: str):
         (venue_id,)).fetchone()
 
 
-def search_venues(q: str):
-    """All venues whose category contains q (case-insensitive). Caller orders by distance."""
+def search_venues(user_id: int, q: str):
+    """Dataset venues plus this user's own places whose category (or name) contains q.
+    Other users' places are never returned. Caller orders by distance."""
+    like = f"%{_like_escape(q)}%"
     return get_db().execute(
-        "SELECT venue_id, category, latitude, longitude, popularity FROM venues "
-        "WHERE category LIKE ? ESCAPE '\\' COLLATE NOCASE",
-        (f"%{_like_escape(q)}%",)).fetchall()
+        "SELECT venue_id, category, latitude, longitude, popularity, name FROM venues "
+        "WHERE (owner_user_id IS NULL OR owner_user_id = ?) "
+        "AND (category LIKE ? ESCAPE '\\' COLLATE NOCASE OR name LIKE ? ESCAPE '\\' COLLATE NOCASE)",
+        (user_id, like, like)).fetchall()
+
+
+def upsert_own_venue(user_id: int, venue_id: str, category: str, lat: float, lon: float,
+                     name: str | None) -> None:
+    """A place found from the user's detected location. Visible only to that user."""
+    db = get_db()
+    db.execute(
+        "INSERT INTO venues (venue_id, category, latitude, longitude, popularity, name, owner_user_id) "
+        "VALUES (?, ?, ?, ?, 0, ?, ?) ON CONFLICT(venue_id) DO UPDATE SET category = excluded.category, "
+        "name = excluded.name WHERE venues.owner_user_id = excluded.owner_user_id",
+        (venue_id, category, lat, lon, name, user_id))
+    db.commit()
 
 
 # ----------------------------------------------------------------------------- check-ins
@@ -125,7 +142,7 @@ def history(user_id: int, limit: int = 1000) -> list:
 
 def recent_checkins(user_id: int, limit: int) -> list:
     return get_db().execute(
-        "SELECT c.checkin_id, c.venue_id, v.category, v.latitude AS lat, v.longitude AS lon, "
+        "SELECT c.checkin_id, c.venue_id, v.category, v.name, v.latitude AS lat, v.longitude AS lon, "
         "c.ts_utc, c.tz_offset_min, c.source, c.predicted_rank "
         "FROM checkins c JOIN venues v ON v.venue_id = c.venue_id "
         "WHERE c.user_id = ? ORDER BY c.ts_utc DESC, c.checkin_id DESC LIMIT ?",
@@ -147,6 +164,7 @@ def delete_checkins(user_id: int) -> None:
     with db:
         db.execute("DELETE FROM predictions WHERE user_id = ?", (user_id,))
         db.execute("DELETE FROM checkins WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM venues WHERE owner_user_id = ?", (user_id,))
 
 
 # ----------------------------------------------------------------------------- predictions
@@ -199,7 +217,7 @@ def export_user(user_id: int) -> dict:
     db = get_db()
     user = get_user(user_id)
     checkins = db.execute(
-        "SELECT c.checkin_id, c.venue_id, v.category, v.latitude, v.longitude, c.ts_utc, "
+        "SELECT c.checkin_id, c.venue_id, v.category, v.name, v.latitude, v.longitude, c.ts_utc, "
         "c.tz_offset_min, c.source, c.predicted_rank, c.created_at FROM checkins c "
         "JOIN venues v ON v.venue_id = c.venue_id WHERE c.user_id = ? ORDER BY c.ts_utc, c.checkin_id",
         (user_id,)).fetchall()

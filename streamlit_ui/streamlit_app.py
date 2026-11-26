@@ -26,7 +26,7 @@ from werkzeug.security import check_password_hash, generate_password_hash  # noq
 
 from app import create_app  # noqa: E402
 from app import validators as v  # noqa: E402
-from app.auth import sample_histories  # noqa: E402
+from app.services.samples import pick_sample, sample_histories  # noqa: E402
 from app.services import checkin_service, prediction_service  # noqa: E402
 from app.services import repository as repo  # noqa: E402
 
@@ -86,10 +86,9 @@ def show_auth() -> None:
         confirm = st.text_input("Confirm password", type="password", key="reg_confirm")
         with ctx():
             has_samples = bool(sample_histories())
-        sample = st.checkbox("Load a sample New York history", value=has_samples, disabled=not has_samples)
-        st.caption("The data covers New York City in 2012–13, and its places have no names, only a category "
-                   "and a location. A sample copies one anonymised person's check-ins into your account so "
-                   "predictions work straight away. You can delete them any time.")
+        sample = st.checkbox("Load a sample history", value=has_samples, disabled=not has_samples)
+        st.caption("Fills your account with a made-up year of check-ins at real New York places (the places "
+                   "in our data), ending this week, so predictions work straight away. You can delete them any time.")
         if st.form_submit_button("Create account", type="primary"):
             register(email, pw, confirm, sample)
 
@@ -137,14 +136,13 @@ def register(email: str, pw: str, confirm: str, sample: bool) -> None:
         if repo.email_exists(email):
             st.error("An account with this email already exists. Log in instead.")
             return
-        samples = sample_histories() if sample else {}
-        key = sorted(samples)[int(time.time_ns()) % len(samples)] if samples else None
+        key, rows = pick_sample() if sample else (None, [])
         uid = repo.create_user(email, generate_password_hash(pw), key)
         if key:
-            repo.copy_sample(uid, samples[key])
+            repo.copy_sample(uid, rows)
     st.session_state.clear()
     st.session_state.user_id = uid
-    st.session_state.flash = ("Welcome aboard. We loaded a sample New York history so you can see predictions now."
+    st.session_state.flash = ("Welcome aboard. We loaded a sample year of check-ins so you can see predictions now."
                               if key else "Your line starts with your first check-in.")
     st.rerun()
 
@@ -279,7 +277,7 @@ def show_dashboard(uid: int) -> None:
         st.markdown(map_svg(list(reversed(recent[:8])), preds), unsafe_allow_html=True)
         st.caption("Not enough history yet: showing popular New York places until you check in."
                    if data["cold_start"] else
-                   f"Based on your last {data['history_used']} check-ins. Sample histories are from New York, 2012–13.")
+                   f"Based on your last {data['history_used']} check-ins. Sample histories are made up, at real New York places.")
     else:
         st.info("Your line starts with your first check-in. Search for a place below.")
 
@@ -332,9 +330,9 @@ def show_checkin(uid: int, tz: int, recent: list) -> None:
     choice = None
     if q.strip():
         with ctx():
-            rows = repo.search_venues(v.search_query(q))
+            rows = repo.search_venues(uid, v.search_query(q))
             last = repo.last_checkin(uid)
-            origin = prediction_service.venue_dict(last["venue_id"]) if last else None
+            origin = prediction_service.venue_dict(last["venue_id"], uid) if last else None
         from predictor.algorithm import haversine_km
         items = []
         for r in rows:
@@ -408,7 +406,7 @@ def show_account(uid: int, user) -> None:
         export = repo.export_user(uid)
     st.write(f"**Email:** {user['email']}  \n**Member since:** {user['created_at'][:10]}  \n"
              f"**Check-ins:** {stats['total']} ({stats['own']} added by you)  \n"
-             f"**Sample history:** {'Dataset user ' + user['sample_source'] if user['sample_source'] else 'None'}")
+             f"**Sample history:** {user['sample_source'] or 'None'}")
 
     st.subheader("Download your data")
     st.download_button("Download JSON", json.dumps(export, indent=2), file_name="syncromove-export.json",

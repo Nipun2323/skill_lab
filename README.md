@@ -15,8 +15,8 @@ Design document: [docs/LLD.md](docs/LLD.md).
 
 ## What it does
 
-- Register (optionally with a **sample New York history**, because the data is NYC 2012–13), log
-  in, log out.
+- Register (optionally with a **sample history**: a made-up year of check-ins at real New York
+  places, ending this week), log in, log out.
 - A **transit-map dashboard**: your last 8 check-ins drawn as a subway line, with the 3 predicted
   next stops branching off as numbered bullets.
 - **Next stops** with likelihood, distance and a one-line reason. **Why?** shows the four signal
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Open http://127.0.0.1:5000, create an account and leave **Load a sample New York history** ticked.
+Open http://127.0.0.1:5000, create an account and leave **Load a sample history** ticked.
 
 `python run.py` uses Flask's development server. `python serve.py` uses waitress, a
 production-grade WSGI server, on the same address.
@@ -103,6 +103,22 @@ and writes `docs/evaluation_results.json` and `docs/accuracy.png`. `render_docs.
 figure in `docs/LLD.md` and `docs/EVALUATION.md` from that JSON. Use `--data PATH` if the file is
 somewhere else.
 
+## Made-up sample histories
+
+New accounts can load a made-up year of check-ins: 25 imaginary people with daily routines at
+real New York venues, 358 days each, with 24–40 different places per person. To regenerate them:
+
+```bash
+python scripts/generate_synthetic.py
+```
+
+The output is the same every time for the same `--seed` and `--end` date. A copied history is moved
+forward to end in the past week, so it always covers the past year. To use real 2012–13 people
+instead, set `SAMPLES_PATH=data/samples/sample_histories.json.gz` in `.env`.
+
+Made-up routines are much more regular than real people: the rule scores about 74% top-3 on
+them, against 31.0% on the real data. Quote the real figure.
+
 ## Tests
 
 ```bash
@@ -110,7 +126,7 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-33 tests cover the algorithm, including the worked example from the design doc, plus auth,
+All tests cover the algorithm, including the worked example from the design doc, plus auth,
 validation, the API and an evaluation smoke test.
 
 ## Configuration
@@ -127,7 +143,7 @@ run.py / serve.py         start the app (Flask dev server / waitress)
 predictor/                the prediction rule: pure Python, no I/O
 scripts/                  import_dataset.py, evaluate.py, render_docs.py
 app/                      Flask app: auth, pages, JSON API, repository (all SQL), templates, static
-data/                     venues.csv.gz, samples/sample_histories.json.gz (raw/ is git-ignored)
+data/                     venues.csv.gz, samples/ (made-up and real sample histories; raw/ is git-ignored)
 docs/                     LLD.md, EVALUATION.md, evaluation_results.json, accuracy.png, templates/
 tests/                    pytest suite
 ```

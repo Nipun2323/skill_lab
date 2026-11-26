@@ -14,7 +14,7 @@ def record_checkin(user_id: int, venue_id, timestamp, tz_offset_min) -> dict:
     `timestamp` is an ISO 8601 string with offset, or None for now."""
     venue_id = v.venue_id(venue_id)
     tz = v.tz_offset(tz_offset_min)
-    venue = ps.venue_dict(venue_id)
+    venue = ps.venue_dict(venue_id, user_id)
     if venue is None:
         raise v.ValidationError("venue_id", "We couldn't find that place. Search again and pick one from the list.",
                                 status=404, code="not_found")
@@ -24,5 +24,5 @@ def record_checkin(user_id: int, venue_id, timestamp, tz_offset_min) -> dict:
     ts = v.timestamp(timestamp, now=int(time.time()), last_ts=last["ts_utc"] if last else None)
     rank = repo.rank_in_last_prediction(user_id, last["checkin_id"] if last else None, venue_id)
     checkin_id = repo.add_checkin(user_id, venue_id, ts, tz, "app", rank)
-    return {"checkin_id": checkin_id, "venue_id": venue_id, "category": venue["category"],
+    return {"checkin_id": checkin_id, "venue_id": venue_id, "category": venue["category"], "name": venue["name"],
             "ts_utc": ts, "predicted_rank": rank}

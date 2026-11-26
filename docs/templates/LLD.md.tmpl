@@ -40,10 +40,26 @@ Out of scope: model training, live GPS tracking, tile-server maps, mobile app, s
 ### 1.5 Important constraint
 The dataset is **New York City, April 2012 – February 2013**, and venues have **no names**, only
 a category, such as "Coffee Shop", and coordinates. A new user elsewhere cannot produce
-meaningful NYC check-ins. Registration therefore offers **"Load a sample New York history"**,
-which copies one of 25 anonymised dataset users' sequences into the new account so predictions
+meaningful NYC check-ins. Registration therefore offers **"Load a sample history"**: a
+**made-up year of check-ins at real New York venues**, copied into the new account so predictions
 work at once. The user can then add check-ins by searching places by category; results are listed
-nearest to their last check-in. The UI says this on the sign-up form and under the map.
+nearest to their last check-in. The UI says the history is made up, on the sign-up form and under the map.
+
+**Sample histories** (`scripts/generate_synthetic.py`, seed 42). There are 25 imaginary people,
+each with a home, a work or study place and regular places (coffee, gym, groceries, lunch, dinner,
+bar, park, a friend's home, shops), all real dataset venues chosen near home or work. A weekly
+routine with random variation produces 358 days of check-ins: work-day commutes, gym days, Friday
+bars, weekend parks and brunch, about 25% of weekend afternoons at somewhere new nearby, a 5–11
+day holiday with no check-ins, and only 18–32% of visits checked in. The result is 305–600
+check-ins and 24–40 different places per person (the brief asked for at least 10). On sign-up, the
+copy is moved forward by whole weeks so it ends in the past 7 days. Whole weeks keep every visit's
+weekday and local time, so the history always covers the past year. The real 2012–13 samples
+(`sample_histories.json.gz`, 25 dataset users with at least 10 places over at least 9 months) can
+be used instead via `SAMPLES_PATH`.
+
+**Accuracy on made-up data is not the real result.** Generated routines are far more regular than
+real people: the full rule scores about 74% top-3 on these histories against {{pct:methods.full.top3}} on
+the real data. The accuracy card and §5 report only the real-data evaluation.
 
 ---
 
@@ -70,7 +86,9 @@ Flask app (app/__init__.py: create_app, security headers, CSRF hook, error handl
 
 One-off setup:  python scripts/import_dataset.py --data <NYC file>
                   → data/venues.csv.gz                     (venue list + popularity, committed)
-                  → data/samples/sample_histories.json.gz  (25 demo histories, committed)
+                  → data/samples/sample_histories.json.gz  (25 real dataset users, committed)
+                python scripts/generate_synthetic.py
+                  → data/samples/synthetic_histories.json.gz (25 made-up past-year histories, the default)
 Measuring:      python scripts/evaluate.py --data <NYC file> → docs/evaluation_results.json, docs/accuracy.png
 Docs:           python scripts/render_docs.py → docs/LLD.md, docs/EVALUATION.md (figures filled from the JSON)
 ```
@@ -220,7 +238,7 @@ A transit map, because the subject is moving through a city:
 | Table | Columns |
 |---|---|
 | `users` | `user_id INTEGER PK AUTOINCREMENT`, `email TEXT NOT NULL UNIQUE COLLATE NOCASE`, `password_hash TEXT NOT NULL`, `created_at TEXT NOT NULL`, `sample_source TEXT NULL` |
-| `venues` | `venue_id TEXT PK`, `category TEXT NOT NULL`, `latitude REAL NOT NULL`, `longitude REAL NOT NULL`, `popularity INTEGER NOT NULL DEFAULT 0`; index on `category` |
+| `venues` | `venue_id TEXT PK`, `category TEXT NOT NULL`, `latitude REAL NOT NULL`, `longitude REAL NOT NULL`, `popularity INTEGER NOT NULL DEFAULT 0`, `name TEXT NULL`, `owner_user_id INTEGER NULL FK→users ON DELETE CASCADE`; indexes on `category`, `owner_user_id`. Dataset venues have no owner; a place found from a user's detected location (`POST /api/places/locate`, OpenStreetMap lookup) belongs to that user and is never shown to anyone else. Older databases get the two columns added on start |
 | `checkins` | `checkin_id INTEGER PK`, `user_id INTEGER FK→users ON DELETE CASCADE`, `venue_id TEXT FK→venues`, `ts_utc INTEGER NOT NULL`, `tz_offset_min INTEGER NOT NULL`, `source TEXT CHECK IN ('app','sample')`, `predicted_rank INTEGER NULL`, `created_at TEXT`; index `(user_id, ts_utc)` |
 | `predictions` | `prediction_id INTEGER PK`, `user_id FK ON DELETE CASCADE`, `batch_id TEXT`, `context_checkin_id INTEGER FK→checkins ON DELETE CASCADE`, `rank INTEGER`, `venue_id TEXT FK`, `score REAL`, `algorithm_version TEXT`, `created_at TEXT`; index `(user_id, prediction_id)`. A batch identical to the previous one for the same context is not logged again |
 | `login_attempts` | `attempt_id PK`, `email TEXT COLLATE NOCASE`, `ip TEXT`, `attempted_at INTEGER`; indexes `(email, attempted_at)`, `(ip, attempted_at)` |
@@ -246,7 +264,7 @@ accepts a user id from the client. A test checks that user B sees none of user A
 - **Indexes:** `(user_id, ts_utc)` for reading history; `category` for search;
   `(user_id, prediction_id)` for the latest batch; `(email|ip, attempted_at)` for the rate limit.
 - **Size:** {{int:dataset.rows_raw}} rows (31.5 MB raw), 38,333 venues (0.8 MB gzipped). A sample history
-  copies about 100–500 rows. Reading 1,000 check-ins and scoring the candidates takes milliseconds;
+  copies about 300–600 rows. Reading 1,000 check-ins and scoring the candidates takes milliseconds;
   the venue table (38k rows) is cached in memory per process; nothing else is cached.
 - **Privacy:** location history is personal data. Passwords are hashed with werkzeug scrypt.
   Sessions are HttpOnly + SameSite=Lax, signed with a per-install secret, 12 h lifetime, and

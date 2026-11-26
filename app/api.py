@@ -12,7 +12,7 @@ from predictor.algorithm import haversine_km
 
 from . import validators as v
 from .security import current_user, login_required
-from .services import checkin_service
+from .services import checkin_service, places
 from .services import prediction_service as ps
 from .services import repository as repo
 
@@ -49,7 +49,7 @@ def predictions():
 
 
 def _checkin_json(r) -> dict:
-    return {"checkin_id": r["checkin_id"], "venue_id": r["venue_id"], "category": r["category"],
+    return {"checkin_id": r["checkin_id"], "venue_id": r["venue_id"], "category": r["category"], "name": r["name"],
             "lat": r["lat"], "lon": r["lon"], "ts_utc": r["ts_utc"],
             "tz_offset_min": r["tz_offset_min"], "source": r["source"],
             "predicted_rank": r["predicted_rank"]}
@@ -77,14 +77,17 @@ def create_checkin():
 def venues():
     q = v.search_query(request.args.get("q"))
     n = v.limit(request.args.get("limit"), 1, 50, 12)
-    rows = repo.search_venues(q)
-    last = repo.last_checkin(_uid())
-    origin = ps.venue_dict(last["venue_id"]) if last else None
+    uid = _uid()
+    rows = repo.search_venues(uid, q)
+    last = repo.last_checkin(uid)
+    origin = ps.venue_dict(last["venue_id"], uid) if last else None
     items = []
     for r in rows:
         d = (haversine_km(origin["lat"], origin["lon"], r["latitude"], r["longitude"])
              if origin else None)
-        items.append({"venue_id": r["venue_id"], "category": r["category"], "lat": r["latitude"],
+        if last is not None and r["venue_id"] == last["venue_id"]:
+            continue  # you're already here
+        items.append({"venue_id": r["venue_id"], "category": r["category"], "name": r["name"], "lat": r["latitude"],
                       "lon": r["longitude"], "popularity": r["popularity"],
                       "distance_km": round(d, 2) if d is not None else None})
     if origin:
@@ -92,6 +95,17 @@ def venues():
     else:
         items.sort(key=lambda x: (-x["popularity"], x["venue_id"]))
     return jsonify({"venues": items[:n], "near_last_checkin": origin is not None})
+
+
+@bp.post("/places/locate")
+@login_required
+def locate_place():
+    """Body {"lat", "lon"} from the browser's Geolocation API. Looks up the address with
+    OpenStreetMap, saves it as a private place and lists dataset places within 500 m."""
+    body = v.json_object(request.get_json(silent=True))
+    lat = v.coordinate(body.get("lat"), "lat", -90, 90)
+    lon = v.coordinate(body.get("lon"), "lon", -180, 180)
+    return jsonify(places.locate(_uid(), lat, lon))
 
 
 @bp.get("/accuracy")

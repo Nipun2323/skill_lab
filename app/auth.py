@@ -1,13 +1,9 @@
 """Registration, login and logout (server-rendered forms)."""
 from __future__ import annotations
 
-import gzip
-import json
 import math
-import secrets
 import sqlite3
 import time
-from pathlib import Path
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -15,20 +11,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from . import validators as v
 from .security import client_ip, current_user, login_user, logout_user, safe_next
 from .services import repository as repo
+from .services.samples import pick_sample, sample_histories
 
 bp = Blueprint("auth", __name__)
 
 # Compared against when the email is unknown, so both paths cost the same.
 _DUMMY_HASH = generate_password_hash("not-a-real-password-1")
-
-
-def sample_histories() -> dict:
-    cache = current_app.extensions.get("syncromove_samples")
-    if cache is None:
-        path = Path(current_app.config["SAMPLES_PATH"])
-        cache = json.loads(gzip.decompress(path.read_bytes())) if path.is_file() else {}
-        current_app.extensions["syncromove_samples"] = cache
-    return cache
 
 
 @bp.route("/register", methods=["GET", "POST"])
@@ -62,9 +50,7 @@ def register():
 
     sample_key, sample_rows = None, None
     if form.get("sample") == "1" and samples_available:
-        samples = sample_histories()
-        sample_key = secrets.choice(sorted(samples))
-        sample_rows = samples[sample_key]
+        sample_key, sample_rows = pick_sample()
     try:
         user_id = repo.create_user(email, generate_password_hash(form["password"]), sample_key)
     except sqlite3.IntegrityError:
@@ -74,7 +60,7 @@ def register():
     if sample_rows:
         repo.copy_sample(user_id, sample_rows)
     login_user(user_id)
-    flash("Welcome aboard. " + ("We loaded a sample New York history so you can see predictions now."
+    flash("Welcome aboard. " + ("We loaded a sample year of check-ins so you can see predictions now."
                                 if sample_rows else "Your line starts with your first check-in."))
     return redirect(url_for("views.dashboard"))
 

@@ -340,7 +340,7 @@
     $("time-bucket").textContent = when;
     var note = data.cold_start
       ? "Not enough history yet: showing popular New York places until you check in."
-      : "Based on your last " + data.history_used + " check-ins. Sample histories are from New York, 2012–13.";
+      : "Based on your last " + data.history_used + " check-ins. Sample histories are made up, at real New York places.";
     $("map-note").textContent = note;
   }
 

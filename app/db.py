@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS venues (
     category    TEXT NOT NULL,
     latitude    REAL NOT NULL,
     longitude   REAL NOT NULL,
-    popularity  INTEGER NOT NULL DEFAULT 0
+    popularity  INTEGER NOT NULL DEFAULT 0,
+    name           TEXT NULL,
+    owner_user_id  INTEGER NULL REFERENCES users(user_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_venues_category ON venues(category);
 
@@ -90,7 +92,21 @@ def close_db(_exc=None) -> None:
 
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring databases created by earlier versions up to date (safe to run every start).
+    Venues found from a user's detected location are private to that user (owner_user_id);
+    dataset venues have owner_user_id NULL."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(venues)")}
+    if "name" not in cols:
+        conn.execute("ALTER TABLE venues ADD COLUMN name TEXT NULL")
+    if "owner_user_id" not in cols:
+        conn.execute("ALTER TABLE venues ADD COLUMN owner_user_id INTEGER NULL "
+                     "REFERENCES users(user_id) ON DELETE CASCADE")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_venues_owner ON venues(owner_user_id)")
 
 
 def read_venues_file(path: Path) -> tuple[list[tuple], str]:

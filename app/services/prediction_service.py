@@ -16,13 +16,19 @@ COLD_START_REASON = "Based on what's popular until you check in"
 
 
 def venue_cache() -> dict:
-    """{venue_id: (category, lat, lon, popularity)} kept in memory; 38k rows, a few MB."""
+    """{venue_id: (category, lat, lon, popularity, name, owner_user_id)} kept in memory; 38k rows."""
     cache = current_app.extensions.get("syncromove_venues")
     if cache is None:
         cache = repo.all_venues()
         current_app.extensions["syncromove_venues"] = cache
-        current_app.extensions["syncromove_popularity"] = {v: t[3] for v, t in cache.items()}
+        # city popularity comes from the dataset only; users' own places have none
+        current_app.extensions["syncromove_popularity"] = {
+            v: t[3] for v, t in cache.items() if t[5] is None}
     return cache
+
+
+def remember_venue(venue_id: str, category: str, lat: float, lon: float, name, owner: int) -> None:
+    venue_cache()[venue_id] = (category, lat, lon, 0, name, owner)
 
 
 def popularity() -> dict:
@@ -30,11 +36,13 @@ def popularity() -> dict:
     return current_app.extensions["syncromove_popularity"]
 
 
-def venue_dict(venue_id: str) -> dict | None:
+def venue_dict(venue_id: str, user_id: int | None = None) -> dict | None:
+    """Venue details. With user_id, another user's private place counts as not found."""
     t = venue_cache().get(venue_id)
-    if t is None:
+    if t is None or (user_id is not None and t[5] is not None and t[5] != user_id):
         return None
-    return {"venue_id": venue_id, "category": t[0], "lat": t[1], "lon": t[2], "popularity": t[3]}
+    return {"venue_id": venue_id, "category": t[0], "lat": t[1], "lon": t[2], "popularity": t[3],
+            "name": t[4], "own_place": t[5] is not None}
 
 
 def algo_config() -> AlgoConfig:
@@ -62,6 +70,7 @@ def predict_for_user(user_id: int, query_ts: int, query_tz: int, k: int, log: bo
             "rank": rank,
             "venue_id": p.venue_id,
             "category": v["category"],
+            "name": v["name"],
             "lat": v["lat"],
             "lon": v["lon"],
             "probability": round(p.probability, 4),
@@ -78,7 +87,7 @@ def predict_for_user(user_id: int, query_ts: int, query_tz: int, k: int, log: bo
         repo.log_predictions(user_id, context_id, out, ALGORITHM_VERSION)
 
     if last_place is not None:
-        last_place = {k_: last_place[k_] for k_ in ("venue_id", "category", "lat", "lon")}
+        last_place = {k_: last_place[k_] for k_ in ("venue_id", "category", "name", "lat", "lon")}
     return {
         "algorithm_version": ALGORITHM_VERSION,
         "cold_start": cold_start,

@@ -17,7 +17,9 @@ DEFAULTS: dict[str, object] = {
     # Data files
     "RAW_DATA_PATH": "data/raw/dataset_TSMC2014_NYC.txt",
     "VENUES_PATH": "data/venues.csv.gz",
-    "SAMPLES_PATH": "data/samples/sample_histories.json.gz",
+    # Made-up past-year histories (scripts/generate_synthetic.py). For real 2012–13 New York
+    # people instead, set SAMPLES_PATH=data/samples/sample_histories.json.gz
+    "SAMPLES_PATH": "data/samples/synthetic_histories.json.gz",
     "DATABASE_PATH": "instance/syncromove.db",
     "EVAL_RESULTS_PATH": "docs/evaluation_results.json",
     "SECRET_KEY": "",

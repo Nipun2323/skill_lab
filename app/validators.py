@@ -133,6 +133,18 @@ def search_query(value) -> str:
     return value
 
 
+def coordinate(value, field: str, low: float, high: float) -> float:
+    if isinstance(value, bool) or value is None or value == "":
+        raise ValidationError(field, "Location is required.", code="required")
+    try:
+        x = float(value)
+    except (TypeError, ValueError):
+        raise ValidationError(field, f"{field} must be a number.")
+    if not low <= x <= high or x != x:
+        raise ValidationError(field, f"{field} must be between {low:g} and {high:g}.")
+    return x
+
+
 def json_object(body) -> dict:
     if not isinstance(body, dict):
         raise ValidationError(None, "Request body must be a JSON object.")
