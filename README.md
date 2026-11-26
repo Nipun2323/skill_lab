@@ -74,6 +74,14 @@ Deploy it at https://share.streamlit.io: **Create app** → pick this repository
 file path `streamlit_ui/streamlit_app.py` → under **Advanced settings** choose Python 3.11 or newer
 → **Deploy**.
 
+**Mumbai demo.** The landing page offers three made-up people with six months of check-ins
+around Mumbai (Aarav, a software engineer in Powai; Priya, a student in Dadar; Rohan, a doctor in
+Bandra). Click **Explore as …** to see their places and recent route on a street map, with
+curved arcs to the top 3 predicted next stops. Use **Where are you?** and **When?** to ask "what
+if": for example, Priya at Dadar Station on a Tuesday at 08:30 versus 19:00. The people,
+routines and checks are described in [docs/DEMO.md](docs/DEMO.md); regenerate that report with
+`python scripts/demo_report.py`. Set `DEMO_DATA=false` to turn the demo people off.
+
 Limits of the hosted version:
 - **Accounts don't last.** Streamlit Cloud's disk is temporary, so the SQLite database is wiped
   whenever the app restarts, sleeps or is redeployed. Fine for a demo; not for real users.

@@ -155,6 +155,15 @@ def recent_checkins(user_id: int, limit: int) -> list:
         (user_id, limit)).fetchall()
 
 
+def place_visits(user_id: int) -> list:
+    """Every place in the user's history with visit count and last visit, most visited first."""
+    return get_db().execute(
+        "SELECT c.venue_id, v.name, v.category, v.latitude AS lat, v.longitude AS lon, "
+        "COUNT(*) AS visits, MAX(c.ts_utc) AS last_ts FROM checkins c "
+        "JOIN venues v ON v.venue_id = c.venue_id WHERE c.user_id = ? "
+        "GROUP BY c.venue_id ORDER BY visits DESC, last_ts DESC", (user_id,)).fetchall()
+
+
 def checkin_stats(user_id: int) -> dict:
     r = get_db().execute(
         "SELECT COUNT(*) AS total, "
